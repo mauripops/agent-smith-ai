@@ -22,20 +22,20 @@ class UtilityAgent:
     def __init__(self, 
                  name: str = "Assistant",
                  system_message: str = "You are a helpful assistant.",
-                 model: str = "gpt-3.5-turbo-0613",
+                 model: str = "gpt-35-turbo-16k",
                  openai_api_key: str = None,
                  auto_summarize_buffer_tokens: Union[int, None] = 500,
                  summarize_quietly: bool = False,
                  max_tokens: float = None,
                  # in tokens/sec; 10000 tokens/hr = 10000 / 3600
                  token_refill_rate: float = 10000.0 / 3600.0,
-                 check_toxicity = True) -> None:
+                 check_toxicity = False) -> None:
         """A UtilityAgent is an AI-powered chatbot that can call API endpoints and local methods.
         
         Args:
             name (str, optional): The name of the agent. Defaults to "Assistant".
             system_message (str, optional): The system message to display when the agent is initialized. Defaults to "You are a helpful assistant.".
-            model (str, optional): The OpenAI model to use for function calls. Defaults to "gpt-3.5-turbo-0613".
+            model (str, optional): The OpenAI model to use for function calls. Defaults to "gpt-35-turbo-16k".
             openai_api_key (str, optional): The OpenAI API key to use for function calls. Defaults to None. If not provided, it will be read from the OPENAI_API_KEY environment variable.
             auto_summarize_buffer_tokens (Union[int, None], optional): Automatically summarize the conversation every time the buffer reaches this many tokens. Defaults to 500. Set to None to disable automatic summarization.
             summarize_quietly (bool, optional): Whether to yield messages alerting the user to the summarization process. Defaults to False.
@@ -381,6 +381,8 @@ class UtilityAgent:
             ## first we extract it (the call info) and format it as a message, yielding it to the stream
             func_name = message["function_call"]["name"]
             func_arguments = json.loads(message["function_call"]["arguments"])
+            if "content" not in message:
+                message["content"]=None
 
             new_message = Message(role = message["role"], 
                                   content = message["content"],
@@ -596,11 +598,11 @@ def _generate_schema(fn: Callable) -> Dict[str, Any]:
     return schema
 
 
-def _context_size(model: str = "gpt-3.5-turbo-0613") -> int:
+def _context_size(model: str = "gpt-35-turbo-16k") -> int:
     """Return the context size for a given model.
     
     Args:
-        model (str, optional): The model to get the context size for. Defaults to "gpt-3.5-turbo-0613".
+        model (str, optional): The model to get the context size for. Defaults to "gpt-35-turbo-16k".
         
     Returns:
         int: The context size for the given model."""
@@ -616,13 +618,13 @@ def _context_size(model: str = "gpt-3.5-turbo-0613") -> int:
         return 4096
 
 ## Straight from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
-def _num_tokens_from_messages(messages: List[Dict[str, Any]], model="gpt-3.5-turbo-0613") -> int:
+def _num_tokens_from_messages(messages: List[Dict[str, Any]], model="gpt-35-turbo-16k") -> int:
     """Return the number of tokens used by a list of messages. 
     As provided by https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb (Aug 2023).
     
     Args:
         messages (List[Dict[str, Any]]): The messages to count the tokens of.
-        model (str, optional): The model to use for tokenization. Defaults to "gpt-3.5-turbo-0613".
+        model (str, optional): The model to use for tokenization. Defaults to "gpt-35-turbo-16k".
 
     Returns:
         int: The number of tokens used by the messages.
@@ -634,7 +636,7 @@ def _num_tokens_from_messages(messages: List[Dict[str, Any]], model="gpt-3.5-tur
         encoding = tiktoken.get_encoding("cl100k_base")
     if model in {
         "gpt-35-turbo-16k",
-        "gpt-3.5-turbo-0613",
+        "gpt-35-turbo-16k",
         "gpt-3.5-turbo-16k-0613",
         "gpt-4-0314",
         "gpt-4-32k-0314",
@@ -647,8 +649,8 @@ def _num_tokens_from_messages(messages: List[Dict[str, Any]], model="gpt-3.5-tur
         tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
         tokens_per_name = -1  # if there's a name, the role is omitted
     elif "gpt-3.5-turbo" in model:
-        print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-3.5-turbo-0613.")
-        return _num_tokens_from_messages(messages, model="gpt-3.5-turbo-0613")
+        print("Warning: gpt-3.5-turbo may update over time. Returning num tokens assuming gpt-35-turbo-16k.")
+        return _num_tokens_from_messages(messages, model="gpt-35-turbo-16k")
     elif "gpt-4" in model:
         print("Warning: gpt-4 may update over time. Returning num tokens assuming gpt-4-0613.")
         return _num_tokens_from_messages(messages, model="gpt-4-0613")

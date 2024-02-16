@@ -4,6 +4,11 @@ import os
 import dotenv
 dotenv.load_dotenv()          # load env variables defined in .env file (if any)
 
+DEFAULT_MODEL = "gpt-3.5-turbo-16k-0613"
+if "OPENAI_API_TYPE" in os.environ:
+    OPENAI_API_TYPE=os.environ["OPENAI_API_TYPE"]
+    if OPENAI_API_TYPE=="azure":
+        DEFAULT_MODEL = "gpt-35-turbo-16k"
 
 ### You may wish to create a .streamlit/config.toml file in the same directory as this script
 ### with contents to adjust the theme:
@@ -27,12 +32,13 @@ sv.initialize_app_config(
         }
 )
 
+
 # define a function that returns a dictionary of agents to serve
 def get_agents():
     return {
         "Monarch Assistant": {
-            "agent": MonarchAgent("Monarch Assistant", model="gpt-3.5-turbo-16k-0613"),
-            "greeting": "Hello, I'm the Monarch Assistant.",
+            "agent": MonarchAgent("Monarch Assistant", model=DEFAULT_MODEL),
+            "greeting": "Hello, I'm the Monarch Assistant. ",
             "avatar": "https://avatars.githubusercontent.com/u/5161984?s=200&v=4",
             "user_avatar": "👤",
         },

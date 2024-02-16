@@ -70,7 +70,7 @@ def test_example_agent():
     assert agent.api_set is not None
 
     for message in agent.chat("Hey!"):
-        print("\n\n\nMESSAGE: ", message.dict())
+        print("\n\n\nMESSAGE: ", message.model_dump())
         assert message.role is not None
         assert message.content is not None
 
