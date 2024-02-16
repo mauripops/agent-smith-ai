@@ -1,3 +1,5 @@
+### Azure notes
+Apart from setting the API key as `OPEANAI_API_KEY` in key.env to set as envirionment varible, also set `OPENAI_API_TYPE`, `OPEANAI_API_BASE`, and `OPEANAI_API_VERSION`.
 # Agent Smith (AI)
 
 Agent smith makes it easy to instantiate AI agents that can safely and easily call APIs and locally defined functions to interact with the world. It is currently designed to use OpenAI's [function-calling models](https://platform.openai.com/docs/guides/gpt/function-calling) and thus requires an OpenAI API key.
