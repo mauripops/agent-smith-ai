@@ -51,6 +51,14 @@ class UtilityAgent:
         else:
             raise ValueError("No OpenAI API key found. Please set the OPENAI_API_KEY environment varable or provide it during agent instantiation.")
 
+        # add api_version, type and base from environment if it exists
+        if "OPENAI_API_VERSION" in os.environ:
+                openai.api_version=os.environ["OPENAI_API_VERSION"]
+        if "OPENAI_API_TYPE" in os.environ:
+                openai.api_type=os.environ["OPENAI_API_TYPE"]
+        if "OPENAI_API_BASE" in os.environ:
+            openai.api_base=os.environ["OPENAI_API_BASE"]
+        
         self.name = name
         self.model = model
 
@@ -149,12 +157,20 @@ class UtilityAgent:
         yield from self._summarize_if_necessary()
 
         try:
-            response_raw = openai.ChatCompletion.create(
-                      model=self.model,
-                      temperature = 0,
-                      messages = self._reserialize_history(),
-                      functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
-                      function_call = "auto")
+            if openai.api_type!="azure":
+                response_raw = openai.ChatCompletion.create(
+                        model=self.model,
+                        temperature = 0,
+                        messages = self._reserialize_history(),
+                        functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
+                        function_call = "auto")
+            else:
+                response_raw = openai.ChatCompletion.create(
+                        engine=self.model,
+                        temperature = 0,
+                        messages = self._reserialize_history(),
+                        functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
+                        function_call = "auto")
 
             for message in self._process_model_response(response_raw, intended_recipient = author):
                 yield message
@@ -261,18 +277,31 @@ class UtilityAgent:
 
         if self.function_schema_tokens is not None and not force_update:
             return self.function_schema_tokens
-
-        response_raw_w_functions = openai.ChatCompletion.create(
-                  model=self.model,
-                  temperature = 0,
-                  messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': 'hi'}],
-                  functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
-                  function_call = "auto")
+        
+        if openai.api_type!="azure":
+            response_raw_w_functions = openai.ChatCompletion.create(
+                    model=self.model,
+                    temperature = 0,
+                    messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': 'hi'}],
+                    functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
+                    function_call = "auto")
        
-        response_raw_no_functions = openai.ChatCompletion.create(
-                  model=self.model,
-                  temperature = 0,
-                  messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': 'hi'}])
+            response_raw_no_functions = openai.ChatCompletion.create(
+                    model=self.model,
+                    temperature = 0,
+                    messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': 'hi'}])
+        else:
+            response_raw_w_functions = openai.ChatCompletion.create(
+                    engine=self.model,
+                    temperature = 0,
+                    messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': 'hi'}],
+                    functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
+                    function_call = "auto")
+       
+            response_raw_no_functions = openai.ChatCompletion.create(
+                    engine=self.model,
+                    temperature = 0,
+                    messages = [{'role': 'system', 'content': 'You are a helpful assistant.'}, {'role': 'user', 'content': 'hi'}])
 
         diff = response_raw_w_functions['usage']['prompt_tokens'] - response_raw_no_functions['usage']['prompt_tokens']
 
@@ -439,12 +468,20 @@ class UtilityAgent:
         # the model may want to make *another* function call, so it is processed recursively using the logic above
         # (TODO? set a maximum recursive depth to avoid infinite-loop behavior)
         try:
-            reponse_raw = openai.ChatCompletion.create(
-                              model=self.model,
-                              temperature = 0,
-                              messages = self._reserialize_history(),
-                              functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
-                              function_call = "auto")
+            if openai.api_type != "azure":
+                reponse_raw = openai.ChatCompletion.create(
+                                model=self.model,
+                                temperature = 0,
+                                messages = self._reserialize_history(),
+                                functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
+                                function_call = "auto")
+            else:
+                reponse_raw = openai.ChatCompletion.create(
+                                engine=self.model,
+                                temperature = 0,
+                                messages = self._reserialize_history(),
+                                functions = self.api_set.get_function_schemas() + self._get_method_schemas(),
+                                function_call = "auto")
         except Exception as e:
             yield Message(role = "assistant", content = f"Error in sending function or method call result to model: {str(e)}", author = "System", intended_recipient = intended_recipient)
             # if there was a failure in the summary/further work determination, we shouldn't try to do further work, just exit
@@ -573,6 +610,8 @@ def _context_size(model: str = "gpt-3.5-turbo-0613") -> int:
         return 8192
     elif "gpt-3.5" in model and "16k" in model:
         return 16384
+    elif "gpt-35" in model and "16k" in model:
+        return 16384
     else:
         return 4096
 
@@ -594,6 +633,7 @@ def _num_tokens_from_messages(messages: List[Dict[str, Any]], model="gpt-3.5-tur
         print("Warning: model not found. Using cl100k_base encoding.")
         encoding = tiktoken.get_encoding("cl100k_base")
     if model in {
+        "gpt-35-turbo-16k",
         "gpt-3.5-turbo-0613",
         "gpt-3.5-turbo-16k-0613",
         "gpt-4-0314",
